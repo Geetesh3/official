@@ -1,17 +1,48 @@
 import { AuthResponse } from './types';
-import { getErrorMessage } from './utils';
-import { isValidAdminCredentials } from './config';
+import { getErrorMessage } from '../../utils/error';
+import { isValidEmail, isValidPassword } from '../../utils/validation';
+import { supabase } from '../supabase';
 
+/**
+ * Sign in user with email and password
+ */
 export const signIn = async (email: string, password: string): Promise<AuthResponse> => {
   try {
-    // For demo purposes, bypass Supabase if admin credentials are correct
-    if (isValidAdminCredentials(email, password)) {
+    // Validate input
+    if (!isValidEmail(email)) {
+      return {
+        success: false,
+        error: {
+          message: 'Invalid email format',
+          code: 'invalid_email'
+        }
+      };
+    }
+
+    if (!isValidPassword(password)) {
+      return {
+        success: false,
+        error: {
+          message: 'Password must be at least 8 characters',
+          code: 'invalid_password'
+        }
+      };
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
       return {
         success: true,
         user: {
-          id: 'admin-1',
-          email,
-          name: 'Admin User',
+          id: data.user.id,
+          email: data.user.email!,
+          name: data.user.user_metadata.name || 'Admin User',
           role: 'admin'
         }
       };
@@ -20,7 +51,7 @@ export const signIn = async (email: string, password: string): Promise<AuthRespo
     return {
       success: false,
       error: {
-        message: 'Invalid email or password',
+        message: 'Invalid credentials',
         code: 'invalid_credentials'
       }
     };
